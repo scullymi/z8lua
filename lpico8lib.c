@@ -190,7 +190,8 @@ static int pico8_tostr(lua_State *l) {
             break;
         case LUA_TNUMBER: {
             lua_Number x = lua_tonumber(l, 1);
-            if (flags) {
+            // Only bits 0x1 (hex) and 0x2 (raw integer) count, other flags print decimals
+            if (flags & 0x3) {
                 uint32_t b = (uint32_t)x.bits();
                 if ((flags & 0x3) == 0x3) {
                     sprintf(buffer, "0x%04x%04x", (b >> 16) & 0xffff, b & 0xffff);
