@@ -267,15 +267,15 @@ static int pico8_tonum(lua_State *l) {
 }
 
 static int pico8_chr(lua_State *l) {
-    // PICO-8 peek returns at most 8192 values and I have observed at least one cart
-    // that approaches this limit. I think this is a decent buffer size
-    char s[8192];
+    // Build the string in a Lua buffer: a large array on the C stack overflows the
+    // small stacks of microcontrollers
     size_t numargs = lua_gettop(l);
-    if (numargs > sizeof(s)) numargs = sizeof(s);
+    luaL_Buffer b;
+    char *s = luaL_buffinitsize(l, &b, numargs);
     for (size_t i = 0; i < numargs; i++) {
         s[i] = (char)(uint8_t)lua_tonumber(l, i + 1);
     }
-    lua_pushlstring(l, s, numargs);
+    luaL_pushresultsize(&b, numargs);
     return 1;
 }
 
@@ -309,7 +309,7 @@ static int pico8_ord(lua_State *l) {
     if (size_t(n + count) > len)
         count = len - n;
     // min stack is only 20. This could be a much longer string
-    lua_checkstack(l, count);
+    luaL_checkstack(l, count, "ord");
     for (int i = 0; i < count; ++i)
         lua_pushnumber(l, uint8_t(s[n + i]));
     return count;
