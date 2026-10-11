@@ -1297,14 +1297,20 @@ static void whilestat (LexState *ls, int line) {
   enterblock(fs, &bl, 1);
   int short_while = ls->t.token != TK_DO && ls->t.token != TK_EOS
                  && ls->braces == 0 && line == ls->linenumber;
-  if (short_while)
+  if (short_while) {
     ls->emiteol = 1;
+    ls->shortdepth++;
+  }
   else
     checknext(ls, TK_DO);
   block(ls);
   luaK_jumpto(fs, whileinit);
+  if (short_while)
+    ls->shortdepth--;
   if (!short_while)
     check_match(ls, TK_END, TK_WHILE, line);
+  else if (ls->t.token == TK_EOL && ls->shortdepth > 0)
+    ;  /* the EOL also ends an enclosing short IF/WHILE, leave it for that */
   else if (ls->t.token == TK_EOL || ls->t.token == TK_EOS)
     luaX_next(ls);  /* eat EOL or EOS */
   else if (block_follow(ls, 1))
@@ -1451,8 +1457,10 @@ static int test_then_block (LexState *ls, int *escapelist) {
   expr(ls, &v);  /* read condition */
   short_if &= ls->t.token != TK_THEN && ls->t.token != TK_DO && ls->t.token != TK_EOS
            && ls->braces <= 0 && line == ls->linenumber;
-  if (short_if)
+  if (short_if) {
     ls->emiteol = 1;
+    ls->shortdepth++;
+  }
   else {
     /* PICO-8 allows 'do' as an alternative to 'then' in if statements */
     if (!testnext(ls, TK_THEN) && !testnext(ls, TK_DO))
@@ -1497,7 +1505,10 @@ static void ifstat (LexState *ls, int line) {
   if (!short_if)
     check_match(ls, TK_END, TK_IF, line);
   else {
-    if (ls->t.token == TK_EOL || ls->t.token == TK_EOS)
+    ls->shortdepth--;
+    if (ls->t.token == TK_EOL && ls->shortdepth > 0)
+      ;  /* the EOL also ends an enclosing short IF/WHILE, leave it for that */
+    else if (ls->t.token == TK_EOL || ls->t.token == TK_EOS)
       luaX_next(ls);  /* eat EOL or EOS */
     else if (block_follow(ls, 1))
       ls->emiteol = 0;  /* close the short IF */
@@ -1640,7 +1651,9 @@ static void shortprint (LexState *ls, expdesc *f) {
 
   /* PICO-8: removed check for EOL so it can be used as an expression */
   /* if (!testnext(ls, TK_EOS)) check_match(ls, TK_EOL, '?', line); */
-  testnext(ls, TK_EOL);
+  /* Inside a short IF/WHILE the EOL ends that statement, so it is left for it. */
+  if (ls->shortdepth == 0)
+    testnext(ls, TK_EOL);
 
   int base, nparams;
   lua_assert(f->k == VNONRELOC);

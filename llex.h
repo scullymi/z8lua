@@ -58,6 +58,7 @@ typedef struct LexState {
   int linenumber;  /* input line counter */
   int atsol;  /* are we at start of line? */
   int emiteol;  /* should EOL be emitted? */
+  int shortdepth;  /* open short IF/WHILE statements, which end at the EOL */
   int lastline;  /* line of last token `consumed' */
   int braces;  /* braces context */
   Token t;  /* current token */
