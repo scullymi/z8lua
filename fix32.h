@@ -24,9 +24,10 @@ struct fix32
 {
     inline fix32() = default;
 
-    // Convert from/to double
+    // Convert from/to double. As in PICO-8, NaN becomes 0, an infinity saturates
+    // and any other value wraps around to its low 32 bits.
     inline fix32(double d)
-      : m_bits(int32_t(int64_t(d * 65536.0)))
+      : m_bits(from_double(d))
     {}
 
     inline operator double() const
@@ -117,19 +118,20 @@ struct fix32
     inline bool operator <=(fix32 x) const { return m_bits <= x.m_bits; }
     inline bool operator >=(fix32 x) const { return m_bits >= x.m_bits; }
 
-    // Increments
-    inline fix32& operator ++() { m_bits += 0x10000; return *this; }
-    inline fix32& operator --() { m_bits -= 0x10000; return *this; }
+    // Increments, wrapping around like all arithmetic below (done on uint32_t
+    // because signed overflow is undefined in C++)
+    inline fix32& operator ++() { m_bits = int32_t(uint32_t(m_bits) + 0x10000u); return *this; }
+    inline fix32& operator --() { m_bits = int32_t(uint32_t(m_bits) - 0x10000u); return *this; }
     inline fix32 operator ++(int) { fix32 ret = *this; ++*this; return ret; }
     inline fix32 operator --(int) { fix32 ret = *this; --*this; return ret; }
 
     // Math operations
     inline fix32 const &operator +() const { return *this; }
-    inline fix32 operator -() const { return frombits(-m_bits); }
+    inline fix32 operator -() const { return frombits(int32_t(0u - uint32_t(m_bits))); }
     inline fix32 operator ~() const { return frombits(~m_bits); }
 
-    inline fix32 operator +(fix32 x) const { return frombits(m_bits + x.m_bits); }
-    inline fix32 operator -(fix32 x) const { return frombits(m_bits - x.m_bits); }
+    inline fix32 operator +(fix32 x) const { return frombits(int32_t(uint32_t(m_bits) + uint32_t(x.m_bits))); }
+    inline fix32 operator -(fix32 x) const { return frombits(int32_t(uint32_t(m_bits) - uint32_t(x.m_bits))); }
     inline fix32 operator &(fix32 x) const { return frombits(m_bits & x.m_bits); }
     inline fix32 operator |(fix32 x) const { return frombits(m_bits | x.m_bits); }
     inline fix32 operator ^(fix32 x) const { return frombits(m_bits ^ x.m_bits); }
@@ -220,6 +222,17 @@ struct fix32
     }
 
 private:
+    static inline int32_t from_double(double d)
+    {
+        double s = d * 65536.0;
+        if (s != s)
+            return 0;
+        // Beyond the int64_t range the low 32 bits of a double are all zero.
+        if (s >= 9223372036854775808.0 || s <= -9223372036854775808.0)
+            return std::isinf(s) ? (s > 0 ? 0x7fffffff : -0x7fffffff) : 0;
+        return int32_t(uint32_t(uint64_t(int64_t(s))));
+    }
+
     int32_t m_bits;
 };
 
