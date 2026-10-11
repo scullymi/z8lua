@@ -60,6 +60,17 @@ struct fix32
                                      !std::is_same<T, uint64_t>::value>::type *...>
     inline explicit fix32(T x) : m_bits(int32_t(x << 16)) {}
 
+    // Support for int and unsigned int when int32_t is a distinct type (long), e.g. with
+    // arm-none-eabi. int converts implicitly like int32_t, unsigned int explicitly.
+    template<typename T,
+             typename std::enable_if<std::is_same<T, int>::value &&
+                                     !std::is_same<T, int32_t>::value>::type *...>
+    inline fix32(T x) : m_bits(int32_t(x << 16)) {}
+    template<typename T,
+             typename std::enable_if<std::is_same<T, unsigned int>::value &&
+                                     !std::is_same<T, uint32_t>::value>::type *...>
+    inline explicit fix32(T x) : m_bits(int32_t(x << 16)) {}
+
     // Explicit casts are all allowed
     inline explicit operator int8_t()   const { return m_bits >> 16; }
     inline explicit operator uint8_t()  const { return m_bits >> 16; }
@@ -79,6 +90,14 @@ struct fix32
                                      !std::is_same<T, uint32_t>::value &&
                                      !std::is_same<T, int64_t>::value &&
                                      !std::is_same<T, uint64_t>::value>::type *...>
+    inline explicit operator T() const { return T(m_bits >> 16); }
+
+    // Casts to int and unsigned int when they differ from int32_t and uint32_t.
+    template<typename T,
+             typename std::enable_if<(std::is_same<T, int>::value ||
+                                      std::is_same<T, unsigned int>::value) &&
+                                     !std::is_same<T, int32_t>::value &&
+                                     !std::is_same<T, uint32_t>::value>::type *...>
     inline explicit operator T() const { return T(m_bits >> 16); }
 
     // Directly initialise bits
