@@ -87,6 +87,11 @@ typedef struct LG {
     memcpy(buff + p, &t, sizeof(t)); p += sizeof(t); }
 
 static unsigned int makeseed (lua_State *L) {
+#if defined(LUAI_HASHSEED)
+  /* a fixed seed: the same iteration order of string keys in every run */
+  (void)L;
+  return LUAI_HASHSEED;
+#else
   char buff[4 * sizeof(size_t)];
   unsigned int h = luai_makeseed();
   int p = 0;
@@ -96,6 +101,7 @@ static unsigned int makeseed (lua_State *L) {
   addbuff(buff, p, &lua_newstate);  /* public function */
   lua_assert(p == sizeof(buff));
   return luaS_hash(buff, p, h);
+#endif
 }
 
 
